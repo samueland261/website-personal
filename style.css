@@ -382,6 +382,7 @@ button { font: inherit; color: inherit; }
 /* photos + missing placeholders */
 .ph { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(160deg, #F9DDE2, #EADCF4); }
 .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph--crop img { inset: auto; max-width: none; }
 .ph__missing { display: none; }
 .ph--missing img { display: none; }
 .ph--missing .ph__missing {
@@ -588,6 +589,7 @@ button { font: inherit; color: inherit; }
 .mapcard .leaflet-control-attribution { font-family: var(--ui); font-size: 9px; background: rgba(255, 249, 243, .8); }
 .pin { background: none; border: 0; }
 .pin__photo {
+  position: relative;
   width: 54px; height: 54px;
   border-radius: 50%;
   border: 3px solid #fff;
@@ -803,6 +805,7 @@ button { font: inherit; color: inherit; }
 .tcard__top span:first-child { font-family: var(--script); font-weight: 400; color: var(--red); font-size: 4.6cqw; }
 .tcard__photo { position: relative; flex: 0 0 auto; aspect-ratio: 1 / 1.02; border-radius: 3cqw; overflow: hidden; border: 1.4cqw solid #fff; background: #fff; }
 .tcard__word { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; margin: 1.5cqw 1cqw 0; font-family: var(--hand); font-weight: 600; font-size: 7.2cqw; line-height: 1.02; color: var(--ink); }
+.tcard__word--long { font-size: 6.2cqw; }
 .tcard__rarity { align-self: center; margin: 0; font-family: var(--ui); font-weight: 700; font-size: 3.4cqw; letter-spacing: .08em; color: #8E3B57; background: rgba(255, 255, 255, .7); border-radius: 999px; padding: .5cqw 3cqw; }
 
 /* soft holographic sheen — moves only with cursor/tilt (eased in JS), no sparkles */

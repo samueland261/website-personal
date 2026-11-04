@@ -26,25 +26,26 @@ const CONFIG = {
 
   /* Folder with the photos. Each photo can get:
        pos  → which part stays visible (CSS object-position), e.g. '50% 20%' keeps the top
-       zoom → >1 zooms in from `pos`, handy to crop phone status bars / gallery UI away
-     Tweak these after you upload the real photos. */
+       crop → [top, right, bottom, left] in % of the original photo to cut away
+              (used for phone screenshots: status bar, gallery strip, collage borders…)
+     Tweak these if a face gets cut off. */
   photoDir: 'photos/',
   photos: {
-    '01': { file: '01-gown-grey.jpg',      pos: '50% 22%' },
-    '02': { file: '02-smile.jpg',          pos: '50% 35%' },
-    '03': { file: '03-gloomy.jpg',         pos: '50% 45%', zoom: 1.12 },
-    '04': { file: '04-with-baby.jpg',      pos: '50% 35%' },
-    '05': { file: '05-forest.jpg',         pos: '50% 40%' },
-    '06': { file: '06-medals.jpg',         pos: '50% 35%' },
-    '07': { file: '07-photobooth-1.jpg',   pos: '50% 30%' },
-    '08': { file: '08-photobooth-2.jpg',   pos: '50% 30%' },
+    '01': { file: '01-gown-grey.jpg',      pos: '55% 12%' },
+    '02': { file: '02-smile.jpg',          pos: '50% 50%', crop: [9, 0, 20.5, 0] },
+    '03': { file: '03-gloomy.jpg',         pos: '50% 30%', crop: [15.6, 15, 52.1, 15] },
+    '04': { file: '04-with-baby.jpg',      pos: '40% 55%', crop: [7.2, 0, 10.9, 0] },
+    '05': { file: '05-forest.jpg',         pos: '55% 40%', crop: [34, 0, 18.5, 0] },
+    '06': { file: '06-medals.jpg',         pos: '50% 40%', crop: [7.2, 0, 10.9, 0] },
+    '07': { file: '07-photobooth-1.jpg',   pos: '60% 45%', crop: [49.8, 52.3, 5, 2.8] },
+    '08': { file: '08-photobooth-2.jpg',   pos: '50% 40%', crop: [7.4, 50.7, 64, 5] },
     '09': { file: '09-gown-blue.jpg',      pos: '50% 25%' },
-    '10': { file: '10-airport.jpg',        pos: '50% 35%' },
-    '11': { file: '11-baking.jpg',         pos: '50% 40%' },
-    '12': { file: '12-pies.jpg',           pos: '50% 50%' },
-    '13': { file: '13-studying.jpg',       pos: '50% 40%' },
-    '14': { file: '14-car-mirror.jpg',     pos: '50% 50%', zoom: 1.1 },
-    '15': { file: '15-photoism-strip.jpg', pos: '50% 30%', zoom: 1.08 },
+    '10': { file: '10-airport.jpg',        pos: '50% 38%' },
+    '11': { file: '11-baking.jpg',         pos: '50% 30%' },
+    '12': { file: '12-pies.jpg',           pos: '42% 52%' },
+    '13': { file: '13-studying.jpg',       pos: '62% 32%' },
+    '14': { file: '14-car-mirror.jpg',     pos: '40% 50%', crop: [22.5, 27, 42.5, 20] },
+    '15': { file: '15-photoism-strip.jpg', pos: '50% 50%', crop: [74.7, 8.4, 2.8, 8.4] },
   },
 
   /* a. The letter (shown exactly as written) */
@@ -166,13 +167,36 @@ function photoHTML(id, alt, { lazy = true } = {}) {
   const p = CONFIG.photos[id];
   if (!p) return '';
   const pos = p.pos || '50% 35%';
-  const zoom = p.zoom ? `transform:scale(${p.zoom});transform-origin:${pos};` : '';
-  return `<div class="ph" data-photo="${id}">
+  const crop = Array.isArray(p.crop) ? ` data-crop="${p.crop.join(',')}" data-pos="${pos}"` : '';
+  return `<div class="ph${crop ? ' ph--crop' : ''}" data-photo="${id}"${crop}>
       <img src="${esc(CONFIG.photoDir + p.file)}" alt="${esc(alt || '')}" loading="${lazy ? 'lazy' : 'eager'}" decoding="async"
-           style="object-position:${pos};${zoom}" onerror="this.parentNode.classList.add('ph--missing')">
+           style="object-position:${pos}" onload="window.layoutCrop && layoutCrop(this.parentNode)" onerror="this.parentNode.classList.add('ph--missing')">
       <span class="ph__missing" aria-hidden="true">${flowerSVG('rose', 'pink')}<span>photo ${id}</span></span>
     </div>`;
 }
+
+/* CSS-only cropping of screenshots: the img is scaled so that only the crop
+   rectangle covers the box (like object-fit: cover), then shifted by `pos`. */
+const cropObserver = 'ResizeObserver' in window ? new ResizeObserver((entries) => entries.forEach((e) => layoutCrop(e.target))) : null;
+function layoutCrop(ph) {
+  if (!ph || !ph.dataset || !ph.dataset.crop) return;
+  const img = ph.querySelector('img');
+  if (!img || !img.naturalWidth) return;
+  if (cropObserver && !ph.dataset.watched) { ph.dataset.watched = '1'; cropObserver.observe(ph); }
+  const bw = ph.clientWidth, bh = ph.clientHeight;
+  if (!bw || !bh) return;
+  const [t, r, b, l] = ph.dataset.crop.split(',').map(Number);
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  const cx = (l / 100) * nw, cy = (t / 100) * nh;
+  const cw = nw * (1 - (l + r) / 100), ch = nh * (1 - (t + b) / 100);
+  const s = Math.max(bw / cw, bh / ch);
+  const [px, py] = (ph.dataset.pos || '50% 50%').split(' ').map((v) => parseFloat(v) / 100);
+  img.style.width = `${nw * s}px`;
+  img.style.height = `${nh * s}px`;
+  img.style.left = `${-cx * s + (bw - cw * s) * px}px`;
+  img.style.top = `${-cy * s + (bh - ch * s) * py}px`;
+}
+window.layoutCrop = layoutCrop;
 
 /* =====================================================================
    Calm mode (+ prefers-reduced-motion)
@@ -752,7 +776,7 @@ function cardHTML(i) {
       <div class="tcard__face tcard__front">
         <div class="tcard__top"><span>${esc(CONFIG.names.nickname)}</span><span>${no}</span></div>
         <div class="tcard__photo">${photoHTML(c.photo, c.word, { lazy: false })}</div>
-        <p class="tcard__word">${esc(c.word)}</p>
+        <p class="tcard__word${c.word.length > 55 ? ' tcard__word--long' : ''}">${esc(c.word)}</p>
         <p class="tcard__rarity">${esc(c.rarity)}</p>
         <div class="tcard__holo"></div><div class="tcard__glare"></div>
       </div>${back}</div></div></div>`;
@@ -1112,10 +1136,10 @@ const MemoryMap = {
     const bounds = [];
     M.pins.forEach((p) => {
       const ph = CONFIG.photos[p.photo];
-      const img = ph ? `<img src="${esc(CONFIG.photoDir + ph.file)}" alt="" style="object-position:${ph.pos || '50% 35%'}" onerror="this.style.visibility='hidden'">` : '';
+      const img = ph ? photoHTML(p.photo, '', { lazy: false }) : '';
       const icon = L.divIcon({ className: 'pin', html: `<div class="pin__photo">${img}</div><div class="pin__tip"></div>`, iconSize: [54, 66], iconAnchor: [27, 66], popupAnchor: [0, -62] });
       L.marker([p.lat, p.lng], { icon, title: p.name }).addTo(map)
-        .bindPopup(`<div class="pin-pop">${ph ? photoHTML(p.photo, p.name) : ''}<p class="pin-pop__name">${esc(p.name)}</p><p class="pin-pop__cap">${esc(p.caption)}</p></div>`, { maxWidth: 220, minWidth: 180 });
+        .bindPopup(`<div class="pin-pop">${ph ? photoHTML(p.photo, p.name, { lazy: false }) : ''}<p class="pin-pop__name">${esc(p.name)}</p><p class="pin-pop__cap">${esc(p.caption)}</p></div>`, { maxWidth: 220, minWidth: 180 });
       bounds.push([p.lat, p.lng]);
     });
     if (bounds.length > 1) map.fitBounds(bounds, { padding: [50, 60], maxZoom: 13 });
